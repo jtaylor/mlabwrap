@@ -142,7 +142,7 @@
 #include <engine.h>
 #include <matrix.h>
 #ifndef _V7_3_OR_LATER
-#define mwSize int
+#define mwSize size_t
 #define mwIndex int
 #endif
 
@@ -642,7 +642,7 @@ PyObject * mlabraw_eval(PyObject *, PyObject *args)
   }
 
   bool ok = my_snprintf(cmd, BUFSIZE, fmt, lStr);
-  if (not ok) {
+  if (!ok) {
 	  PyErr_SetString(mlabraw_error,
 					  "String too long to evaluate.");
 	  return NULL;
@@ -765,7 +765,7 @@ PyObject * mlabraw_get(PyObject *, PyObject *args)
 
   if (mxIsChar(lArray)) {
     lDest = (PyObject *)mx2char(lArray);
-  } else if (mxIsDouble(lArray) and not mxIsSparse(lArray)) {
+  } else if (mxIsDouble(lArray) && !mxIsSparse(lArray)) {
     lDest = (PyObject *)mx2numeric(lArray);
   } else {                      // FIXME structs, cells and non-double arrays
     PyErr_SetString(PyExc_TypeError, "Only strings and non-sparse numeric arrays are supported.");
