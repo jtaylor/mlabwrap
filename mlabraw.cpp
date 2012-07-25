@@ -310,7 +310,7 @@ static inline void copyCplxNumeric2Mx(T *p,int size,double *pRData,double *pIDat
     }
 }
 
-static mxArray *makeMxFromNumeric(const PyArrayObject *pSrc)
+static mxArray *makeMxFromNumeric(const PyArrayObject *pSrc, bool &is_reference)
 {
   npy_intp lRows=0, lCols=0;
   bool lIsComplex;
@@ -319,8 +319,11 @@ static mxArray *makeMxFromNumeric(const PyArrayObject *pSrc)
   double *lI = NULL;
   mxArray *lRetval = NULL;
   mwSize dims[NPY_MAXDIMS];
+  mwSize dimsEmpty [2];
+  memset(&dimsEmpty, 0, 2 * sizeof(mwSize));
   mwSize nDims = pSrc->nd;
   const PyArrayObject *ap=NULL;
+  mxClassID classID = mxUNKNOWN_CLASS;
 
   switch (pSrc->nd) {
   case 0:                       // XXX the evil 0D
@@ -361,8 +364,90 @@ static mxArray *makeMxFromNumeric(const PyArrayObject *pSrc)
 
   if(lIsNotAMatrix)
     lRetval = mxCreateDoubleMatrix(lRows, lCols, lIsComplex ? mxCOMPLEX : mxREAL);
-  else
-    lRetval = mxCreateNumericArray(nDims,dims,mxDOUBLE_CLASS,lIsComplex ? mxCOMPLEX : mxREAL);
+  else {
+    switch (ap->descr->type_num) {
+      case PyArray_CFLOAT:
+      case PyArray_CDOUBLE:
+        classID = mxDOUBLE_CLASS;
+        is_reference = false;
+        break;
+      case PyArray_BOOL:
+        classID = mxLOGICAL_CLASS;
+        is_reference = true;
+        break;
+      case PyArray_CHAR:
+        classID = mxCHAR_CLASS;
+        is_reference = true;
+        break;
+      case PyArray_DOUBLE:
+        classID = mxDOUBLE_CLASS;
+        is_reference = true;
+        break;
+      case PyArray_FLOAT:
+        classID = mxSINGLE_CLASS;
+        is_reference = true;
+        break;
+      case PyArray_INT8:
+        classID = mxINT8_CLASS;
+        is_reference = true;
+        break;
+      case PyArray_UINT8:
+        classID = mxUINT8_CLASS;
+        is_reference = true;
+        break;
+      case PyArray_INT16:
+        classID = mxINT16_CLASS;
+        is_reference = true;
+        break;
+      case PyArray_UINT16:
+        classID = mxUINT16_CLASS;
+        is_reference = true;
+        break;
+      case PyArray_INT32:
+        classID = mxINT32_CLASS;
+        is_reference = true;
+        break;
+      case PyArray_UINT32:
+        classID = mxUINT32_CLASS;
+        is_reference = true;
+        break;
+#ifdef NPY_INT64
+      case PyArray_INT64:
+        classID = mxINT64_CLASS;
+        is_reference = true;
+        break;
+      case PyArray_UINT64:
+        classID = mxUINT64_CLASS;
+        is_reference = true;
+        break;
+#endif
+    }
+    if (!is_reference) {
+      lRetval = mxCreateNumericArray(nDims,dims,classID,lIsComplex ? mxCOMPLEX : mxREAL);
+    } else {
+/*
+      // code for create and mxArray ref on the numpy object
+      lRetval = mxCreateNumericArray(2, dimsEmpty, classID, lIsComplex ? mxCOMPLEX : mxREAL);
+      if (mxSetDimensions(lRetval, dims, nDims) == 1) {
+        // failed to reset the dimensions
+        mxDestroyArray(lRetval);
+        lRetval = NULL;
+      } else {
+        mxSetData(lRetval, PyArray_DATA(ap));
+      }
+*/
+      // uses memcopy for faster copying
+      is_reference = false;
+      lRetval = mxCreateNumericArray(nDims, dims, classID, lIsComplex ? mxCOMPLEX : mxREAL);
+      // this is a sanity check, it should not fail
+      int matlab_nbytes = mxGetNumberOfElements(lRetval) * mxGetElementSize(lRetval);
+      if (matlab_nbytes == PyArray_NBYTES(pSrc)) {
+        memcpy(mxGetData(lRetval), PyArray_DATA(ap), PyArray_NBYTES(pSrc));
+      } else {
+        PyErr_SetString(PyExc_TypeError, "Number of bytes do not match");
+      }
+    }
+  }
 
   if (lRetval == NULL) return NULL;
   lR = mxGetPr(lRetval);
@@ -415,38 +500,6 @@ static mxArray *makeMxFromNumeric(const PyArrayObject *pSrc)
     npy_intp size = PyArray_SIZE(pSrc);
 
     switch (pSrc->descr->type_num) {
-    case PyArray_CHAR:
-      copyNumeric2Mx((char *)p,size,lR);
-      break;
-
-    case PyArray_UBYTE:
-      copyNumeric2Mx((unsigned char *)p,size,lR);
-      break;
-
-    case PyArray_SBYTE:
-      copyNumeric2Mx((signed char *)p,size,lR);
-      break;
-
-    case PyArray_SHORT:
-      copyNumeric2Mx((short *)p,size,lR);
-      break;
-
-    case PyArray_INT:
-      copyNumeric2Mx((int *)p,size,lR);
-      break;
-
-    case PyArray_LONG:
-      copyNumeric2Mx((long *)p,size,lR);
-      break;
-
-    case PyArray_FLOAT:
-      copyNumeric2Mx((float *)p,size,lR);
-      break;
-
-    case PyArray_DOUBLE:
-      copyNumeric2Mx((double *)p,size,lR);
-      break;
-
     case PyArray_CFLOAT:
       copyCplxNumeric2Mx((float *)p,size,lR,lI);
       break;
@@ -464,7 +517,7 @@ static mxArray *makeMxFromNumeric(const PyArrayObject *pSrc)
 }
 
 //AWMS: FIXME think about non-numeric sequences and whether we should return a cell array instead
-static mxArray *makeMxFromSeq(const PyObject *pSrc)
+static mxArray *makeMxFromSeq(const PyObject *pSrc, bool &is_reference)
 {
   mxArray *lRetval = NULL;
   mwIndex i;
@@ -489,25 +542,25 @@ static mxArray *makeMxFromSeq(const PyObject *pSrc)
     lArray = lNew;
   }
 
-  lRetval = makeMxFromNumeric(lArray);
+  lRetval = makeMxFromNumeric(lArray, is_reference);
   Py_DECREF(lArray);
 
   return lRetval;
 }
 
-static mxArray *numeric2mx(PyObject *pSrc)
+static mxArray *numeric2mx(PyObject *pSrc, bool &is_reference)
 {
   mxArray *lDst = NULL;
 
   pyassert(PyArray_API, "Unable to perform this function without NumPy installed");
   if (PyArray_Check(pSrc)) {
-    lDst = makeMxFromNumeric((const PyArrayObject *)pSrc);
+    lDst = makeMxFromNumeric((const PyArrayObject *)pSrc, is_reference);
   } else if (PySequence_Check(pSrc)) {
-    lDst = makeMxFromSeq(pSrc);
+    lDst = makeMxFromSeq(pSrc, is_reference);
   } else if (PyObject_HasAttrString(pSrc, "__array__")) {
     PyObject *arp;
     arp = PyObject_CallMethod(pSrc, "__array__", NULL);
-    lDst = makeMxFromNumeric((const PyArrayObject *)arp);
+    lDst = makeMxFromNumeric((const PyArrayObject *)arp, is_reference);
     Py_DECREF(arp);             // FIXME check this is correct;
   }
     else if (PyInt_Check(pSrc) || PyLong_Check(pSrc) ||
@@ -516,7 +569,7 @@ static mxArray *numeric2mx(PyObject *pSrc)
     t = Py_BuildValue("(O)", pSrc);
 //     t = PyTuple_New(1);
 //     PyTuple_SetItem(t, 0, pSrc);
-    lDst = makeMxFromSeq(t);
+    lDst = makeMxFromSeq(t, is_reference);
     Py_DECREF(t); // FIXME check this
   } else {
 
@@ -796,6 +849,7 @@ PyObject * mlabraw_put(PyObject *, PyObject *args)
   PyObject *lHandle;
   PyObject *lSource;
   mxArray *lArray = NULL;
+  bool is_reference = false;
   //FIXME should make these objects const
   if (! PyArg_ParseTuple(args, "OsO:put", &lHandle, &lName, &lSource)) return NULL;
   if (! PyCObject_Check(lHandle)) {
@@ -807,9 +861,11 @@ PyObject * mlabraw_put(PyObject *, PyObject *args)
   if (PyString_Check(lSource)) {
     lArray = char2mx(lSource);
   } else {
-    lArray = numeric2mx(lSource);
+    lArray = numeric2mx(lSource, is_reference);
   }
-  Py_DECREF(lSource);
+  if (!is_reference) {
+    Py_DECREF(lSource);
+  }
 
   if (lArray == NULL) {
     return NULL;   // Above converter already set error message
@@ -825,8 +881,16 @@ PyObject * mlabraw_put(PyObject *, PyObject *args)
 #endif
     PyErr_SetString(mlabraw_error,
                    "Unable to put matrix into MATLAB(TM) workspace");
+    if (is_reference) {
+      mxSetData(lArray, NULL);
+      Py_DECREF(lSource);
+    }
     mxDestroyArray(lArray);
     return NULL;
+  }
+  if (is_reference) {
+    mxSetData(lArray, NULL);
+    Py_DECREF(lSource);
   }
   mxDestroyArray(lArray);
   Py_INCREF(Py_None);
