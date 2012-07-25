@@ -311,6 +311,8 @@ class MlabObjectProxy(object):
             mlabraw.eval(self._mlabwrap._session, 'clear TMP_VAL__;')
 
     def __getattr__(self, attr):
+        if attr in ("__methods__", "__members__"):
+            return None
         if attr == "_":
             return self.__dict__.setdefault('_', CurlyIndexer(self))
         else:
@@ -415,7 +417,8 @@ class MlabWrap(object):
            effort. To turn on autoconversion for e.g. cell arrays do:
            ``mlab._dont_proxy["cell"] = True``."""
     def __del__(self):
-        mlabraw.close(self._session)
+        if mlabraw is not None:
+            mlabraw.close(self._session)
     def _format_struct(self, varname):
         res = []
         fieldnames = self._do("fieldnames(%s)" % varname)
@@ -635,7 +638,7 @@ class MlabWrap(object):
         doc = self._do("help('%s')" % name)
         # play it safe only return 1st if nout >= 1
         # XXX are all ``nout>1``s also useable as ``nout==1``s?
-        nout = nout and 1
+        nout = 0 if nout == -1 else nout
         mlab_command = self._make_mlab_command(name, nout, doc)
         #!!! attr, *not* name, because we might have python keyword name!
         setattr(self, attr, mlab_command)
