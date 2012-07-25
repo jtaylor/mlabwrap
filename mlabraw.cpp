@@ -708,22 +708,57 @@ PyObject * mlabraw_eval(PyObject *, PyObject *args)
     return NULL;
   }
   {
+    // check if debugging
+    mxArray *lArray_debug = NULL;
+    bool isDebugMode;
+    do {
+      isDebugMode = false;
+      engEvalString((Engine*)PyCObject_AsVoidPtr(lHandle), "debug = feature('IsDebugMode');");
+      lArray_debug = _getMatlabVar(lHandle, "debug");
+      if (lArray_debug == NULL) {
+        PyErr_SetString(mlabraw_error,
+                        "Something VERY BAD happened whilst trying to evaluate debug status "
+                        "in MATLAB(TM) workspace.");
+        return NULL;
+      } else {
+        isDebugMode = (bool)*mxGetPr(lArray_debug);
+      }
+      if (isDebugMode){
+        sleep(10);
+        std::cout << "Matlab is debugging " << std::endl;
+      }
+    } while (isDebugMode);
+
     mxArray *lArray = NULL;
     char buffer2[BUFSIZE];
     char *retStr2 = buffer2;
     bool __mlabraw_error;
     if (NULL == (lArray = _getMatlabVar(lHandle, "MLABRAW_ERROR_")) ) {
+/*
       PyErr_SetString(mlabraw_error,
                       "Something VERY BAD happened whilst trying to evaluate string "
                       "in MATLAB(TM) workspace.");
       return NULL;
+*/
+      do {
+        std::cout << "Matlab could be debugging " << std::endl;
+        sleep(10);
+        lArray = _getMatlabVar(lHandle, "MLABRAW_ERROR_");
+      } while(NULL == lArray);
+
+      if (NULL == lArray) {
+        PyErr_SetString(mlabraw_error,
+                        "Something VERY BAD happened whilst trying to evaluate string "
+                        "in MATLAB(TM) workspace.");
+        return NULL;
+      }
     }
     __mlabraw_error = (bool)*mxGetPr(lArray);
     mxDestroyArray(lArray);
     if (__mlabraw_error) {
       engOutputBuffer((Engine *)PyCObject_AsVoidPtr(lHandle), retStr2, BUFSIZE-1);
       if (engEvalString((Engine *)PyCObject_AsVoidPtr(lHandle),
-                        "disp(subsref(lasterror(),struct('type','.','subs','message')))") != 0) {
+                        "currenterror=lasterror();disp(subsref(currenterror,struct('type','.','subs','message')));stack=subsref(currenterror,struct('type','.','subs','stack'));for(i=1:length(stack))disp(stack(i));end") != 0) {
         PyErr_SetString(mlabraw_error, "THIS SHOULD NOT HAVE HAPPENED!!!");
         return NULL;
       }
