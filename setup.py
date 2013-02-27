@@ -39,6 +39,53 @@ VC_DIR='C:/Program Files/Microsoft Visual Studio .NET 2003/vc7'
 #VC_DIR=None
 #PLATFORM_DIR="win32/borland/bc54"
 
+import platform
+if platform.system() == 'Windows':
+    import _winreg as reg
+
+    # assume 64 is in the platform name and that no Visual Studio subdirectory is needed
+    if '64' in platform.machine():
+        PLATFORM_DIR='win64/microsoft'
+    else:
+        PLATFORM_DIR='win32/microsoft'
+
+    # select highest MATLAB version
+    key = reg.OpenKey(reg.HKEY_LOCAL_MACHINE, r'SOFTWARE\MathWorks\MATLAB')
+    versions = []
+    try:
+        i = 0
+        while True:
+            version = float(reg.EnumKey(key, i))
+            versions.append(version)
+            i += 1
+    except WindowsError:
+        # WindowsError: [Error 259] No more data is available
+        pass
+    MATLAB_VERSION = sorted(versions)[-1]
+
+    key = reg.OpenKey(reg.HKEY_LOCAL_MACHINE, r'SOFTWARE\MathWorks\MATLAB\{0}'.format(MATLAB_VERSION))
+    MATLAB_DIR = reg.QueryValueEx(key, 'MATLABROOT')[0]
+
+    # select highest Visual C version
+    sub_key = r'SOFTWARE\Microsoft\VisualStudio\SxS\VC7'
+    if '64' in platform.machine():
+        sub_key = r'SOFTWARE\Wow6432Node\Microsoft\VisualStudio\SxS\VS7'
+    key = reg.OpenKey(reg.HKEY_LOCAL_MACHINE, sub_key)
+    versions = {}
+    try:
+        i = 0
+        while True:
+            version = reg.EnumValue(key, i)
+            versions[float(version[0])] = version[1]
+            i += 1
+    except WindowsError:
+        # WindowsError: [Error 259] No more data is available
+        pass
+    VC_DIR = versions[max(versions.keys())] + 'VC'
+
+    key = reg.OpenKey(reg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Microsoft SDKs\Windows')
+    SDK_DIR = reg.QueryValueEx(key, 'CurrentInstallFolder')[0]
+
 ####################################################################
 ### NO MODIFICATIONS SHOULD BE NECESSARY BEYOND THIS POINT       ###
 ####################################################################
@@ -131,7 +178,6 @@ if None in (MATLAB_VERSION, MATLAB_DIR, PLATFORM_DIR):
         queried_version, queried_dir, queried_platform_dir = ["WHATEVER"]*3
     MATLAB_VERSION = MATLAB_VERSION or queried_version
     MATLAB_DIR = MATLAB_DIR or queried_dir
-    PLATFORM_DIR = PLATFORM_DIR or queried_platform_dir
 if WINDOWS:
     WINDOWS=True
     EXTENSION_NAME = 'mlabraw'
@@ -139,6 +185,7 @@ if WINDOWS:
     CPP_LIBRARIES = [] #XXX shouldn't need CPP libs for windoze
 # unices
 else:
+    PLATFORM_DIR = PLATFORM_DIR or queried_platform_dir
     EXTENSION_NAME = 'mlabrawmodule'
     if not MATLAB_LIBRARIES:
         if MATLAB_VERSION >= 6.5:
@@ -158,8 +205,11 @@ else:
 MATLAB_INCLUDE_DIRS = [MATLAB_DIR + "/extern/include"] #, "/usr/include"
 if WINDOWS:
     if VC_DIR:
-        MATLAB_LIBRARY_DIRS += [VC_DIR + "/lib"]
-        MATLAB_INCLUDE_DIRS += [VC_DIR + "/include", VC_DIR + "/PlatformSDK/include"]
+        if '64' in platform.machine():
+            MATLAB_LIBRARY_DIRS += [VC_DIR + "/lib/" + platform.machine().lower()]
+        else:
+            MATLAB_LIBRARY_DIRS += [VC_DIR + "/lib"]
+        MATLAB_INCLUDE_DIRS += [VC_DIR + "/include", SDK_DIR + "/Include"]
     else:
         print "Not using Visual C++; fiddling paths for Borland C++ compatibility"
         MATLAB_LIBRARY_DIRS = [mld.replace('/','\\') for mld in  MATLAB_LIBRARY_DIRS]
@@ -170,6 +220,25 @@ if MATLAB_VERSION >= 7.3:
     DEFINE_MACROS.append(('_V7_3_OR_LATER',1))
 if USE_NUMERIC:
     DEFINE_MACROS.append(('MLABRAW_USE_NUMERIC', 1))
+
+if platform.system() == 'Windows':
+    ext_modules = Extension(
+        EXTENSION_NAME, ['mlabraw.cpp'],
+        define_macros=DEFINE_MACROS,
+        library_dirs=MATLAB_LIBRARY_DIRS ,
+        libraries=MATLAB_LIBRARIES + CPP_LIBRARIES,
+        include_dirs=MATLAB_INCLUDE_DIRS + (PYTHON_INCLUDE_DIR and [PYTHON_INCLUDE_DIR] or []),
+        extra_compile_args=EXTRA_COMPILE_ARGS)
+else:
+    ext_modules = Extension(
+        EXTENSION_NAME, ['mlabraw.cpp'],
+        define_macros=DEFINE_MACROS,
+        library_dirs=MATLAB_LIBRARY_DIRS ,
+        runtime_library_dirs=MATLAB_LIBRARY_DIRS,
+        libraries=MATLAB_LIBRARIES + CPP_LIBRARIES,
+        include_dirs=MATLAB_INCLUDE_DIRS + (PYTHON_INCLUDE_DIR and [PYTHON_INCLUDE_DIR] or []),
+        extra_compile_args=EXTRA_COMPILE_ARGS)
+
 setup (# Distribution meta-data
        name = "mlabwrap",
        version = __version__,
@@ -178,14 +247,5 @@ setup (# Distribution meta-data
        author_email = "A.Schmolck@gmx.net",
        py_modules = ["mlabwrap"] + SUPPORT_MODULES,
        url='http://mlabwrap.sourceforge.net',
-       ext_modules = [
-          Extension(EXTENSION_NAME, ['mlabraw.cpp'],
-                    define_macros=DEFINE_MACROS,
-                    library_dirs=MATLAB_LIBRARY_DIRS ,
-                    runtime_library_dirs=MATLAB_LIBRARY_DIRS,
-                    libraries=MATLAB_LIBRARIES + CPP_LIBRARIES,
-                    include_dirs=MATLAB_INCLUDE_DIRS + (PYTHON_INCLUDE_DIR and [PYTHON_INCLUDE_DIR] or []),
-                    extra_compile_args=EXTRA_COMPILE_ARGS,
-                    ),
-        ]
+       ext_modules = [ext_modules]
     )
