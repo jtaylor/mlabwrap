@@ -123,7 +123,7 @@
 // We're not building a MEX file, we're building a standalone app.
 #undef MATLAB_MEX_FILE
 
-#ifdef WIN32
+#if defined _WIN32
 #include <windows.h>
 
 // FIXME not yet tested under windows
@@ -131,6 +131,9 @@
 #define vsnprintf _vsnprintf
 #endif
 
+#define sleep Sleep
+#else
+#include <unistd.h>
 #endif
 
 #include <numpy/arrayobject.h>
