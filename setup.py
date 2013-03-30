@@ -143,7 +143,7 @@ PLEASE MAKE SURE matlab IS IN YOUR PATH!
 ''' % (" ".join(cmd), error))
         fh = open(param_fname)
         ver, pth, platform = iter(fh)
-        return (float(re.match(r'\d+.\d+',ver).group()),
+        return (map(int,ver.split()[0].split('.')),
                 pth.rstrip(), platform.rstrip().lower())
     finally:
         if fh: fh.close()
@@ -188,7 +188,7 @@ else:
     PLATFORM_DIR = PLATFORM_DIR or queried_platform_dir
     EXTENSION_NAME = 'mlabrawmodule'
     if not MATLAB_LIBRARIES:
-        if MATLAB_VERSION >= 6.5:
+        if MATLAB_VERSION[0] > 6 or (MATLAB_VERSION[0] == 6 and MATLAB_VERSION[1] >= 5):
             MATLAB_LIBRARIES = 'eng mx mat ut'.split()
         else:
             MATLAB_LIBRARIES = 'eng mx mat mi ut'.split()
@@ -198,7 +198,7 @@ else:
 
 
 
-if MATLAB_VERSION >= 7 and not WINDOWS:
+if MATLAB_VERSION[0] >= 7 and not WINDOWS:
     MATLAB_LIBRARY_DIRS = [MATLAB_DIR + "/bin/" + PLATFORM_DIR]
 else:
     MATLAB_LIBRARY_DIRS = [MATLAB_DIR + "/extern/lib/" + PLATFORM_DIR]
@@ -214,9 +214,9 @@ if WINDOWS:
         print "Not using Visual C++; fiddling paths for Borland C++ compatibility"
         MATLAB_LIBRARY_DIRS = [mld.replace('/','\\') for mld in  MATLAB_LIBRARY_DIRS]
 DEFINE_MACROS=[]
-if MATLAB_VERSION >= 6.5:
+if MATLAB_VERSION[0] > 6 or (MATLAB_VERSION[0] == 6 and MATLAB_VERSION[1] >= 5):
     DEFINE_MACROS.append(('_V6_5_OR_LATER',1))
-if MATLAB_VERSION >= 7.3:
+if MATLAB_VERSION[0] > 7 or (MATLAB_VERSION[0] == 7 and MATLAB_VERSION[1] >= 3):
     DEFINE_MACROS.append(('_V7_3_OR_LATER',1))
 if USE_NUMERIC:
     DEFINE_MACROS.append(('MLABRAW_USE_NUMERIC', 1))
