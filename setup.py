@@ -55,7 +55,7 @@ if platform.system() == 'Windows':
     try:
         i = 0
         while True:
-            version = float(reg.EnumKey(key, i))
+            version = map(int,reg.EnumKey(key, i).split()[0].split('.'))
             versions.append(version)
             i += 1
     except WindowsError:
@@ -63,7 +63,7 @@ if platform.system() == 'Windows':
         pass
     MATLAB_VERSION = sorted(versions)[-1]
 
-    key = reg.OpenKey(reg.HKEY_LOCAL_MACHINE, r'SOFTWARE\MathWorks\MATLAB\{0}'.format(MATLAB_VERSION))
+    key = reg.OpenKey(reg.HKEY_LOCAL_MACHINE, r'SOFTWARE\MathWorks\MATLAB\{0}.{1}'.format(MATLAB_VERSION[0],MATLAB_VERSION[1]))
     MATLAB_DIR = reg.QueryValueEx(key, 'MATLABROOT')[0]
 
     # select highest Visual C version
