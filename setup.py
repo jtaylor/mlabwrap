@@ -91,7 +91,8 @@ if platform.system() == 'Windows':
 ####################################################################
 # *******************************************************************
 
-from distutils.core import setup, Extension
+#from distutils.core import setup, Extension
+from setuptools import setup, Extension
 import os, os.path, glob
 import sys
 import re
