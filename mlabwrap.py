@@ -548,7 +548,7 @@ class MlabWrap(object):
             resSL = ((["RES%d__" % i for i in range(nout)]))
             handle_out(mlabraw.eval(self._session, '[%s]=%s;' % (", ".join(resSL), cmd)))
             res = self._get_values(resSL)
-            print 'nout is ', nout
+
             if nout == 1: res = res[0]
             else:         res = tuple(res)
             if kwargs.has_key('cast'):

@@ -198,7 +198,11 @@ class mlabwrapTC(NumericTestCase):
         self.failUnlessRaises(MlabError,mlab.round)
         assert toscalar(mlab.round(1.6)) == 2.0
         self.assertEqual(mlab.max([20,10],nout=2), (numpy.array([[20]]), array([[1]])))
-        self.assertEqual(mlab.max([20,10]), numpy.array([[20]]))
+
+        # XXX: I changed this to nout=1 where previously it was unspecified.
+        # It seems to be picking up that max has two outputs by default when it calls
+        # nargsout('max') in the MATLAB environment.
+        self.assertEqual(mlab.max([20,10], nout=1), numpy.array([[20]]))
 
     def testDoc(self):
         """Test that docstring extraction works OK."""
