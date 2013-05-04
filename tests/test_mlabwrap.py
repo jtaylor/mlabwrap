@@ -159,9 +159,11 @@ class mlabwrapTC(NumericTestCase):
 
                 ### test sliced arrays (stride handling test) ###
                 b = a1.copy()
+                print b
                 for i in range(nDims):
                     z=0
                     while not z: z = randrange(-3,4)
+                    z = 3
                     b = b[::z]
                 mlab._set('b',b)
                 self.assertEqual(_canonicalMShape(b),mlab._get('b'))
@@ -216,7 +218,11 @@ class mlabwrapTC(NumericTestCase):
         _mlabraw_can_convert
         _dont_proxy""".split():
            self.backup[opt] = mlab.__dict__[opt]
-        mlab.addpath(os.path.dirname(__file__)) # XXX
+
+
+        path_to_add = os.path.dirname(__file__)
+        print 'addpath[{}]'.format(path_to_add)
+        #mlab.addpath(path_to_add) # XXX
         print "ADDPATHed", os.path.dirname(__file__)
     def tearDown(self):
         """Reset options."""
@@ -412,17 +418,19 @@ class mlabwrapTC(NumericTestCase):
         self.assertEqual(mlab.conj(fa),fa)
         self.assertEqual([[2]],mlab.subsref(fa, mlab.struct('type', '()', 'subs',mlab._do('{{1,2}}'))))
 
-suite = TestSuite(map(unittest.makeSuite,
-                               (mlabwrapTC,
-                                )))
-unittest.TextTestRunner(verbosity=2).run(suite)
 
-#FIXME strangely enough we can't test this in the function!
-gc.collect()
-mlab._dont_proxy['cell'] = True
-# XXX got no idea where HOME comes from, not there under win
-assert without(mlab.who(), WHO_AT_STARTUP) == ['bar'], "who is:%r" % mlab.who()
-mlab.clear()
-assert without(mlab.who(), ['MLABRAW_ERROR_']) == [] == mlab._do('{}'),(
-    "who is:%r" % mlab.who())
-mlab._dont_proxy['cell'] = False
+if __name__ == '__main__':
+    suite = TestSuite(map(unittest.makeSuite,
+                                   (mlabwrapTC,
+                                    )))
+    unittest.TextTestRunner(verbosity=2, failfast=True).run(suite)
+
+    #FIXME strangely enough we can't test this in the function!
+    gc.collect()
+    mlab._dont_proxy['cell'] = True
+    # XXX got no idea where HOME comes from, not there under win
+    assert without(mlab.who(), WHO_AT_STARTUP) == ['bar'], "who is:%r" % mlab.who()
+    mlab.clear()
+    assert without(mlab.who(), ['MLABRAW_ERROR_']) == [] == mlab._do('{}'),(
+        "who is:%r" % mlab.who())
+    mlab._dont_proxy['cell'] = False

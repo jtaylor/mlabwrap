@@ -548,7 +548,7 @@ class MlabWrap(object):
             resSL = ((["RES%d__" % i for i in range(nout)]))
             handle_out(mlabraw.eval(self._session, '[%s]=%s;' % (", ".join(resSL), cmd)))
             res = self._get_values(resSL)
-
+            print 'nout is ', nout
             if nout == 1: res = res[0]
             else:         res = tuple(res)
             if kwargs.has_key('cast'):
@@ -603,6 +603,9 @@ class MlabWrap(object):
             mlabraw.eval(self._session, "%s = %s;" % (name, value._name))
         else:
 ##             mlabraw.put(self._session, name, self._as_mlabable_type(value))
+
+            if isinstance(value, numpy.ndarray):
+                value = value.copy() # XXX: mlabraw seems to badly handle strides.
             mlabraw.put(self._session, name, value)
 
     def _make_mlab_command(self, name, nout, doc=None):
