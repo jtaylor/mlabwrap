@@ -405,7 +405,10 @@ class MlabWrap(object):
         memory used up by the arguments will remain unreclaimed till
         overwritten."""
         self._session = mlabraw.open(os.getenv("MLABRAW_CMD_STR", ""))
-        atexit.register(lambda handle=self._session: mlabraw.close(handle))
+
+        # Ensure session get's closed on exit.
+        atexit.register(self._close_session)
+
         self._proxies = weakref.WeakValueDictionary()
         """Use ``mlab._proxies.values()`` for a list of matlab object's that
         are currently proxied."""
@@ -416,9 +419,15 @@ class MlabWrap(object):
         """The matlab(tm) types we can handle ourselves with a bit of
            effort. To turn on autoconversion for e.g. cell arrays do:
            ``mlab._dont_proxy["cell"] = True``."""
-    def __del__(self):
-        if mlabraw is not None:
+
+    def _close_session(self):
+        if self._session is not None:
             mlabraw.close(self._session)
+            self._session = None
+
+    def __del__(self):
+        self._close_session()
+
     def _format_struct(self, varname):
         res = []
         fieldnames = self._do("fieldnames(%s)" % varname)

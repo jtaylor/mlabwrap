@@ -455,7 +455,7 @@ class mlabwrapTC(NumericTestCase):
         mlabraw.eval(mlab._session, r"'x'")
         does not return the string 'x' as exected.
         """
-        
+
         import mlabraw
         self.assertEqual(mlabraw.eval(mlab._session, r"fprintf('1\n')"), '1\n')
         try:

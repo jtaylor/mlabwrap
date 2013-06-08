@@ -654,7 +654,9 @@ PyObject * mlabraw_close(PyObject *, PyObject *args)
 
   if (! PyArg_ParseTuple(args, "O:close", &lHandle)) return NULL;
 
-  if (engClose((Engine *)PyCObject_AsVoidPtr(lHandle)) != 0) {
+  int retCode = engClose((Engine *)PyCObject_AsVoidPtr(lHandle));
+
+  if (retCode != 0) {
     PyErr_SetString(mlabraw_error, "Unable to close session");
     return NULL;
   }
