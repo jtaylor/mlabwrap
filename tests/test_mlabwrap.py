@@ -430,7 +430,6 @@ class mlabwrapTC(NumericTestCase):
     ##         assert p.sv is sv
     ##         assert p.sv[:]
 
-
     def testRawMlabraw(self):
         """A few explicit tests for mlabraw"""
         import mlabraw
@@ -446,6 +445,18 @@ class mlabwrapTC(NumericTestCase):
         assert numpy.inf == mlabraw.get(mlab._session, 'ans');
         # test for buffer overflow detection
         self.assertRaises(Exception, mlabraw.eval, mlab._session, '1' * BUFSIZE)
+
+    def test_mlab_raw_eval(self):
+        """Test evaluating strings in mlabraw module.
+
+        N.B. This is currently known to fail.
+
+        It appears that doing
+        mlabraw.eval(mlab._session, r"'x'")
+        does not return the string 'x' as exected.
+        """
+        
+        import mlabraw
         self.assertEqual(mlabraw.eval(mlab._session, r"fprintf('1\n')"), '1\n')
         try:
             self.assertEqual(mlabraw.eval(mlab._session, r"1"), '')
